@@ -3,26 +3,36 @@ title: "Midwest Demographic Analysis"
 author: "Sanjive Kumar, Nabila Hossain, Angus Huang"
 date: "July 25, 2015"
 output: html_document
+  
 ---
-Summary: In this final project we have worked on MidWest population data set and converted that into a shiny App with limited feature at present as
--- Demographic Lookup based on the state selected by the user
-We have deployed the shiny app in shinyapps.io and can be accessed from url: 
 
-https://ksanju0.shinyapps.io/MidwestDem
+###Summary: 
 
-We have used R, SQL and Data Science methodologies to provide analysis as shown below covering:
--- Comparison of statewise population per race in midwest
--- Total population per race in Midwest
--- statewise Percent of population by race
--- Probability analysis of Education vs Poverty per state with Outlier
+We have started this assignment with MidWest Region Dataset which is focused on the population, economic and education level of all the 5 states. Goal is to analyze the data of Midwest Region demography to answer few basic questions related with education, population and poverty,We have used R, SQL and Data Science methodologies to provide analysis as shown below covering:<a name="A"/>
 
+* ####  [Which State is highly populated in Midwest region?](#Q1)   
+     + [_Demography by Race_](#Q2)
+     + [_Percent of overall poplation per state._](#Q3) 
+* ####[Does education has impact on Poverty?](#Q4)
+* ####[Identify Outliers for further analysis of  education vs poverty to understand the gap in education or impact of other factors on the economic status of an individual](#Q5)  
+* ####[How to make an easy application for user to get the Midwest demographic (by states) details.](#Q6)
+
+
+
+ __Data Tranformation with the use of `sqldf`, `ggplot2`, `reshape2` and `plyr` packages.__
+
+To use the data effectively, we did some data manipulation as creation of another table stateView which provides exclusive data of State and also extended teh orginal Midwest Data by adding an extra column of state_longname which can provide complete name of the states in midwest. To perform all these data manipulation, we have leveraged sqldf package which comes very handy to get the relevant subset of data and use it further for plotting.
+ 
 
 ```{r}
+library(sqldf)
 library(ggplot2)
+library(reshape2)
+library(plyr)
+
 
 midwest <- read.csv(file="https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/ggplot2/midwest.csv", header=TRUE, sep=",") 
 
-library(sqldf)
 stateView<-sqldf(c("Drop table if exists state_View","CREATE table state_View
   (state_id varchar(4), state_shortname varchar(3),state_longname varchar(15), countyName varchar(10));",
   "Insert into state_View(state_shortname,countyName) Select state,county from midwest", 
@@ -42,8 +52,6 @@ stateView<-sqldf(c("Drop table if exists state_View","CREATE table state_View
   "Update state_View set state_id='WI5' where state_View.state_shortname='WI'",
 
   "Select * from state_View"))
-#write.csv(stateView, file = "stateviewimportData.csv")
-head(stateView)
 
 midwest <- sqldf(c("Alter table midwest ADD state_idMW varchar(15)",
 
@@ -55,38 +63,66 @@ midwest <- sqldf(c("Alter table midwest ADD state_idMW varchar(15)",
 
   "Select * from midwest"))
 
-#write.csv(midwest, file = "MidwestimportData1.csv")
 race_pop<- sqldf(c("select sum(popwhite),sum(popblack),sum(popamerindian), sum(popasian), sum(popother),state_idMW
                    from midwest group by state_idMW"))
+pop1<-sqldf(c("select sum(poptotal) As poptotal, state_idMW As state
+                  from midwest group by state_idMW"))
+```
 
-print(race_pop)
+###<a name="Q1"/> Population by State.  
+[Up](#A)
+  
+  + __Histogram__
 
-#,m.popblack,m.popamerindian,m.popasian,m.popother
+```{r}
+ggplot(data = pop1, aes(x = state, y = poptotal, fill = state)) + geom_histogram(stat="identity") + ggtitle("Midwest States Vs. Total Population") +
+xlab("Midwest States") + ylab("Total Population")
 
-library(ggplot2)
-library(reshape2)
-race_pop2 <- race_pop
-names(race_pop2) <- c( "White_Population", "African_American_Population", "Native_American_Population", "Asian_American_Population", "Population_Other_Races", "State")
-m1 <- melt(race_pop2,id.vars="State", variable.name = "Race", value.name = "Population_by_Race" )
-head(m1)
+```
 
-
-
-midwest2 <- aggregate(Population_by_Race ~ (Race + State), data = m1, FUN = 'sum')
-midwest2
-
-s <- ggplot(data = midwest2, aes(x = State, y = Population_by_Race, fill = Race))
-s + geom_histogram(stat = "identity", position = "dodge") + ggtitle("Midwest States And Total Population By Each Race") +
-xlab("Midwest States") + ylab("Total Population By Each Race")
+####Conclusion:
+__The graph represents Illinois as highest populated state and Wisconsin as the least populated state. This can further be analyzed per race in each state which will provide more insight on economic status of individuals.__
 
 
-library(plyr)
+###<a name="Q2"/> Demographic by Race.  
+   [Up](#A)  
+   
+  + ####Pie Chart
+```{r}
+names(race_pop) <- c( "White_Population", "African_American_Population", "Native_American_Population", "Asian_American_Population", "Population_Other_Races", "State")
+midwest2 <- melt(race_pop,id.vars="State", variable.name = "Race", value.name = "Population_by_Race" )
+
 midwest2s <- aggregate(Population_by_Race ~ (Race), data = midwest2, FUN = 'sum')
-head(midwest2s)
+midwest2s
 midwest2s <- ddply(midwest2s, .(Race), transform, pos=cumsum(Population_by_Race)-0.5*(Population_by_Race))
 ggplot(data = midwest2s, aes(x = "", y = Population_by_Race, fill = Race)) + geom_bar(stat = "identity", color = 'black') + coord_polar(theta="y") +  guides(fill=guide_legend(override.aes=list(colour=NA))) + ggtitle("The Total Population The Midwest By Race") +
 ylab("Total Population") 
 
+```
+
+__The graph represents the demograph of each race in midwest. If we look at the chart we see that the majoritry of population in midwest is White American, and the minoity are the Native Americans__
+
+  + ####Histogram of distibution of races in each midwest state.
+
+```{r}
+   #create a histogram of midwest by demographic of races.
+s <- ggplot(data = midwest2, aes(x = State, y = Population_by_Race, fill = Race))
+s + geom_histogram(stat = "identity", position = "dodge") + ggtitle("Midwest States And Total Population By Each Race") +
+xlab("Midwest States") + ylab("Total Population By Each Race")
+
+```  
+
+![image](https://raw.githubusercontent.com/nabilahossain/Group-Work/master/Table1.png)
+
+
+####Conclusion:
+__The graph shows the demographic of different races in each state.__
+
+
+###<a name="Q3"/>Percent of overall poplation per state.  
+[Up](#A)    
+```{r}
+       # Create a sub set using R
 mid2 <- read.csv(file="https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/ggplot2/midwest.csv", header=TRUE, sep=",") 
 midwest.sub <- mid2[, c(4, 13:17)]
 head(midwest.sub)
@@ -95,51 +131,154 @@ m3 <- melt(midwest.sub,id.vars="State", variable.name = "Race", value.name = "Po
 midwest3 <- aggregate(Population_by_Race ~ ((Race + State)), data = m3, FUN = 'sum')
 midwest3 <- aggregate(Population_by_Race ~ ((Race + State)), data = m3, FUN = 'mean')
 midwest3
-midwest3 <- ddply(midwest3, .(State), transform, pos=cumsum(Population_by_Race)-0.5*(Population_by_Race));
 
+        # Create pie charts by each state.
+midwest3 <- ddply(midwest3, .(State), transform, pos=cumsum(Population_by_Race)-0.5*(Population_by_Race));
 
 ggplot(data = midwest3, aes(x = "", y = Population_by_Race, fill = Race)) + geom_bar(stat = "identity", color = 'black') + coord_polar(theta="y")  + guides(fill=guide_legend(override.aes=list(colour=NA)))+
 facet_wrap(~State) + ggtitle("The Population Of Midwest By Race") +
 ylab("Total Population By State") 
 ```
 
---BoxPlot to Represent the Outliers
+Here is a table to represent the data:
+![image](https://raw.githubusercontent.com/nabilahossain/Group-Work/master/Table2.png)
+
+####Conclusion:
+__The pie charts shows us the percent of different races in each state.__
+
+
+
+###<a name="Q4"/>Does education has impact on Poverty?  
+[Up](#A)
 ```{r}
+p <- ggplot(data = midwest, aes(y = percpovertyknown, x = percollege)) 
+p + geom_point((aes(color = state))) + ggtitle("College Education Vs Total Proverty") + xlab("Percent College Educated") + ylab("Percentage of Total proverty")
+```
+
+__The following summary table shows the percentage of population who are college educated and also the percentage of population living below poverty level in each of the Midwest states.__ 
+
+![image](https://raw.githubusercontent.com/nabilahossain/Group-Work/master/Table3.png)
+
+
+```{r}
+  # create a dot plot with correlation line.
+p + geom_point(aes(color = state)) + geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x) + facet_wrap(~state) + ggtitle("College Education Vs Total Proverty by Each Midwest State") + xlab("Percent College Educated") + ylab("Percentage of Total proverty") 
+
+```
+
+![image](https://raw.githubusercontent.com/nabilahossain/Group-Work/master/Table4.png)
+
+####Conclusion: 
+__Within each state, the correlation of college education and poverty level are inversely related. The analysis was done at county level within each state. With the highest correlation being in Ohio state: -0.5.  Although correlation does not suggest causation, the trend is uniform across all 5 states.__
+
+
+
+###<a name="Q5"/> BoxPlot that shows the outliers for the above analysis on Eductaion vs Poverty in each state
+[Up](#A)
+
+The BoxPlot provides all outliers for education vs poverty in each state and this can further be analyzed to identify the gaps 
+
+
+```{r}
+  #Create box plot with outlliers.
 p <- ggplot(data = midwest, aes(y = percpovertyknown, x = percollege))
 p + geom_boxplot(aes(color = state)) + facet_wrap(~state) + ggtitle("College Education Vs Total Proverty by Each Midwest State") +
 xlab("Percent College Educated") + ylab("Percentage of Total proverty")
 
+```
+
+
+__The table below examines the probability that a person to be college educated and living below poverty within each state. The calculation was simply the multiplication of percentage of college educated residents and percentage of residents below poverty. As we can see the highest percentage of outlier are in Michigan as shown by our boxplot in R.__
+
+![image](https://raw.githubusercontent.com/nabilahossain/Group-Work/master/Table5.png)
+
+
+####Conclusion: 
+__The college level education and poverty level are negatively correlated across 5 states in Midwest US. Although there are a few outlier counties which have higher college educated population but also higher poverty, the probability of these cases are lower than 0.02%.__
+
+###<a name="Q6"/> Shiny Application for MidWest Demography Details 
+[Up](#A)  
+
+To summarize all the analysis in simple query based application, we have tried a POC by developing a Shiny Application which can be integrated with any portal to provide insight on MidWest Demography. This can easily be extended to all the other possible FAQs for MidWest Region. Currently we have implemented the state wise demograpghic details around population and education level of the Midwest region.
+
+####Code for Shiny
+```{r, eval=FALSE}
+library(shiny)
+library(sqldf)
+library(reshape2)
+library(ggplot2)
+library(gridExtra)
+library(grid)
+wd.datapath = paste0(getwd(),"/data")
+wd.init = getwd()
+setwd(wd.datapath)
+
+midwest2 = read.csv("midwest.csv", header = TRUE)
+
+midwestNew <- sqldf(c("Alter table midwest2 ADD state_idMW varchar(15)",
+  
+  "Update midwest2 set state_idMW='ILLINOIS' where midwest2.state='IL'",
+  "Update midwest2 set state_idMW='INDIANA' where midwest2.state='IN'",
+  "Update midwest2 set state_idMW='MICHIGAN' where midwest2.state='MI'",
+  "Update midwest2 set state_idMW='OHIO' where midwest2.state='OH'",
+  "Update midwest2 set state_idMW='WISCONSIN' where midwest2.state='WI'",
+  
+  "Select * from midwest2"))
+
+setwd(wd.init)
+
+# Define server logic required to draw a histogram
+shinyServer(function(input, output) {
+  
+     output$distPlot <- renderPlot({
+     
+      
+       popQuery <- sqldf(paste0( "select sum(popwhite),sum(popblack),sum(popamerindian), sum(popasian), sum(popother),state_idMW   from midwestNew 
+         where state_idMW ='", input$Stat, "';" ) )
+       print(popQuery)
+      
+       popQuery2<-sqldf(paste0( "select percpovertyknown,percollege,state_idMW   from midwestNew 
+         where state_idMW ='", input$Stat, "';" ) )
+       
+       popQuery3 <- sqldf(paste0( "select avg(percwhite),avg(percblack),avg(percamerindan), avg(percasian),
+                    avg(percother),state_idMW   from midwestNew 
+                     where state_idMW ='", input$Stat, "';" ) )
+       
+       
+      m <- melt(popQuery,id.vars="state_idMW", variable.name = "Race", value.name = "Population_by_Race")
+       print(m)
+       
+       n <- melt(popQuery3,id.vars="state_idMW", variable.name = "Race", value.name = "Percentage_by_Population")
+       print(n)
+       
+       
+      w<-ggplot(data = m, aes(x=state_idMW ,y=Population_by_Race,fill=Race)) +  geom_histogram(stat="identity",position="dodge")
+      
+      p <- ggplot(data = popQuery2, aes(y = percpovertyknown, x = percollege)) + geom_point((aes(color = state_idMW))) + ggtitle("College Education Vs Total Proverty") +
+      xlab("Percent College Educated") + ylab("Percentage of Total proverty") 
+      
+ 
+      
+      z <- ggplot(data = n, aes(x = "", y = Percentage_by_Population, fill = Race)) + 
+        geom_bar(stat = "identity", color = 'black') + coord_polar(theta="y") + 
+        guides(fill=guide_legend(override.aes=list(colour=NA)))
+     
+      
+      pushViewport(viewport(layout = grid.layout(3, 1),width=0.75,height=1))
+      
+      print(w, vp = viewport(layout.pos.row = 1, layout.pos.col = 1 ))
+      
+      print(p, vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+      
+      print(z, vp = viewport(layout.pos.row = 3, layout.pos.col = 1))
+      
+     })
+  })
 
 ```
 
-The following summary table shows the percentage of population who are college educated and also the percentage of population living below poverty level in each of the Midwest states. 
+####Link for published Shiny Application:  
+  [Up](#A)
 
-State	Percent of College Educated Residents	Count of county In Metro	Percent of resident below poverty
-IL	18.78	102.00	13.07
-IN	16.62	92.00	10.31
-MI	19.42	83.00	14.22
-OH	16.89	88.00	13.03
-WI	20.01	72.00	11.89
-
-Within each state, the correlation of college education and poverty level are inversely related. The analysis was done at county level within each state. With the highest correlation being in Ohio state: -0.5.  Although correlation does not suggest causation, the trend is uniform across all 5 states. 
-
-County Level College Education and Poverty Correlation
-States	Correlation
-WI	-0.41804331
-OH	-0.508687811
-IL	-0.257362817
-IN	-0.201868508
-MI	-0.399198465
-
-The table below examines the probability that a person to be college educated and living below poverty within each state. The calculation was simply the multiplication of percentage of college educated residents and percentage of residents below poverty. As we can see the highest percentage of outlier are in Michigan as shown by our boxplot in R. 
-Probability of College educated Person Living below poverty 	
-States	Calculation 	Probability 
-IL	18.78*13.07	0.024568214
-IN	16.62*10.31	0.017152081
-MI	19.42*14.22	0.027626611
-OH	16.89*13.03	0.022013441
-WI	20.01*11.89	0.023808893
-
-Conclusion: 
-Poverty level and Education is inversely correlated and although there are few outliers the probability of those cases are 0.02%
+<https://ksanju0.shinyapps.io/MidwestDem>
 
