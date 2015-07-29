@@ -16,7 +16,7 @@ We have started this assignment with MidWest Region Dataset which is focused on 
 * ####[Does education has impact on Poverty?](#Q4)
 * ####[Identify Outliers for further analysis of  education vs poverty to understand the gap in education or impact of other factors on the economic status of an individual](#Q5)  
 * ####[How to make an easy application for user to get the Midwest demographic (by states) details.](#Q6)
-
+     + [_Link for published Shiny Application_](#Q7)
 
 
  __Data Tranformation with the use of `sqldf`, `ggplot2`, `reshape2` and `plyr` packages.__
@@ -151,8 +151,8 @@ __The pie charts shows us the percent of different races in each state.__
 ###<a name="Q4"/>Does education has impact on Poverty?  
 [Up](#A)
 ```{r}
-p <- ggplot(data = midwest, aes(y = percpovertyknown, x = percollege)) 
-p + geom_point((aes(color = state))) + ggtitle("College Education Vs Total Proverty") + xlab("Percent College Educated") + ylab("Percentage of Total proverty")
+p <- ggplot(data = midwest, aes(y = percbelowpoverty, x = percollege)) 
+p + geom_point((aes(color = state))) + ggtitle("College Education Vs Total Poverty") + xlab("Percent College Educated") + ylab("Percentage of Total poverty")
 ```
 
 __The following summary table shows the percentage of population who are college educated and also the percentage of population living below poverty level in each of the Midwest states.__ 
@@ -181,9 +181,9 @@ The BoxPlot provides all outliers for education vs poverty in each state and thi
 
 ```{r}
   #Create box plot with outlliers.
-p <- ggplot(data = midwest, aes(y = percpovertyknown, x = percollege))
-p + geom_boxplot(aes(color = state)) + facet_wrap(~state) + ggtitle("College Education Vs Total Proverty by Each Midwest State") +
-xlab("Percent College Educated") + ylab("Percentage of Total proverty")
+p <- ggplot(data = midwest, aes(y = percbelowpoverty, x = percollege))
+p + geom_boxplot(aes(color = state)) + facet_wrap(~state) + ggtitle("College Education Vs Total Poverty by Each Midwest State") +
+xlab("Percent College Educated") + ylab("Percentage of Total poverty")
 
 ```
 
@@ -227,6 +227,53 @@ midwestNew <- sqldf(c("Alter table midwest2 ADD state_idMW varchar(15)",
 
 setwd(wd.init)
 
+# ui.R files for front end of shinyApp
+
+library(shiny)
+wd.datapath = paste0(getwd(),"/data")
+wd.init = getwd()
+setwd(wd.datapath)
+
+midwest2 = read.csv("midwest.csv", header = TRUE)
+
+setwd(wd.init)
+
+
+#df.shiny = read.csv("C:/Users/sanjivek/Desktop/shine/data/midwest.csv")
+#print(midwest2)
+
+# Define UI for application that draws a histogram
+shinyUI(fluidPage(
+  
+  # Application title
+  titlePanel("Midwest State Demography Distribution"),
+  
+  # Sidebar with a slider input for the number of bins
+  sidebarLayout(
+    sidebarPanel(
+      
+      selectInput(inputId = "Stat", 
+                  label = h4("Select Midwest State for Demographic details"),
+                  choices = list("ILLINOIS", "MICHIGAN",
+                                 "INDIANA", "WISCONSIN","OHIO"),
+                  selected = "ILLINOIS")
+    ),
+    
+    # Show a plot of the generated distribution
+    mainPanel(
+      #tabsetPanel(tabPanel("Main",plotOutput("distPlot", height = 1000, width = 1000))
+      
+      plotOutput("distPlot")
+    ))
+  )
+)
+
+
+
+
+
+
+
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
   
@@ -254,8 +301,8 @@ shinyServer(function(input, output) {
        
       w<-ggplot(data = m, aes(x=state_idMW ,y=Population_by_Race,fill=Race)) +  geom_histogram(stat="identity",position="dodge")
       
-      p <- ggplot(data = popQuery2, aes(y = percpovertyknown, x = percollege)) + geom_point((aes(color = state_idMW))) + ggtitle("College Education Vs Total Proverty") +
-      xlab("Percent College Educated") + ylab("Percentage of Total proverty") 
+      p <- ggplot(data = popQuery2, aes(y = percbelowpoverty, x = percollege)) + geom_point((aes(color = state_idMW))) + ggtitle("College Education Vs Total Poverty") +
+      xlab("Percent College Educated") + ylab("Percentage of Total poverty") 
       
  
       
@@ -275,10 +322,11 @@ shinyServer(function(input, output) {
      })
   })
 
+
+
 ```
 
-####Link for published Shiny Application:  
+####<a name="Q7"/>Link for published Shiny Application:  
   [Up](#A)
 
 <https://ksanju0.shinyapps.io/MidwestDem>
-
